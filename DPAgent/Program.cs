@@ -11,10 +11,12 @@ Console.WriteLine("Hello, World!");
 Console.WriteLine("SUDARSHAN – Sensitive Data Audit System");
 
 var scanner = new FileScanner();
-var classifier = new DataClassifier();
+var classifier = new ClassificationManager();
 var riskEngine = new RiskEngine();
 var audit = new AuditLogger();
-var report = new CsvReport();
+
+string reportPath = ReportsUtil.GetReportFilePath("DPAgent","Reports.csv");
+var report = new CsvReport(reportPath);
 var imageExtractor = new ImageExtractor();
 var pdfExtractor = new PdfExtractor();
 
@@ -42,27 +44,27 @@ foreach (var file in scanner.ScanDirectory(path))
         else
             content = scanner.ReadSample(file);
         
-        var dataType = classifier.Classify(content);
+        var dataTypes = classifier.Classify(content);
 
-        if (dataType == "NONE") continue;
+        if (dataTypes.Count == 0) continue;
 
         var hash = scanner.ComputeHash(file);
-        var risk = riskEngine.CalculateRisk(dataType);
+        var risk = riskEngine.CalculateRisk(dataTypes);
 
         results.Add(new ScanResult
         {
-            FilePath = file,
+            Source = file,
+            SourceType = IsImage(file) ? "IMAGE" :
+                         IsPdf(file) ? "PDF" : "TEXT",
             FileHash = hash,
-            DataType = dataType,
-            RiskLevel = risk
+            DetectedDataTypes = dataTypes,
+            Risk = risk
         });
-
-        audit.Log($"Detected {dataType} in {file}");
     }
     catch { /* skip unreadable files */ }
 }
 
 audit.Log("Scan completed");
-report.Generate(results);
+report.WriteReport(results);
 
 Console.WriteLine("Scan complete. Report generated.");
