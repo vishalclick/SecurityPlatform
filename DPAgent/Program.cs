@@ -6,6 +6,7 @@ using DPAgent.Models;
 using DPAgent.Reports;
 using DPAgent.Risk;
 using DPAgent.Scanner;
+using DPAgent.Utils;
 
 Console.WriteLine("Hello, World!");
 Console.WriteLine("SUDARSHAN – Sensitive Data Audit System");
@@ -15,12 +16,16 @@ var classifier = new ClassificationManager();
 var riskEngine = new RiskEngine();
 var audit = new AuditLogger();
 
-string reportPath = ReportsUtil.GetReportFilePath("DPAgent","Reports.csv");
-var report = new CsvReport(reportPath);
+string reportFilePath = PathLocator.GetReportFilePath();
+var report = new CsvReport(reportFilePath);
+
+string scanStoreFilePath = PathLocator.GetScanStoreFilePath();
+var stateStore = new ScanStateStore(scanStoreFilePath);
+
 var imageExtractor = new ImageExtractor();
 var pdfExtractor = new PdfExtractor();
 
-var results = new List<ScanResult>();
+var classifierFoundResults = new List<ScanResult>();
 string path = args.Length > 0 ? args[0] : ".";
 path = Console.ReadLine();
 audit.Log("Scan started");
@@ -29,6 +34,15 @@ foreach (var file in scanner.ScanDirectory(path))
 {
     try
     {
+        var hash = scanner.ComputeHash(file);
+        
+        // SKIP LOGIC
+        if (stateStore.ShouldSkipScan(hash))
+        {
+            Console.WriteLine($"Skipping unchanged file: {file}");
+            continue;
+        }
+
         Console.WriteLine($"Scanning {file}...");
         bool IsImage(string file) =>
                                     file.EndsWith(".jpg") || file.EndsWith(".png") || file.EndsWith(".tiff");
@@ -46,25 +60,37 @@ foreach (var file in scanner.ScanDirectory(path))
         
         var dataTypes = classifier.Classify(content);
 
-        if (dataTypes.Count == 0) continue;
 
-        var hash = scanner.ComputeHash(file);
         var risk = riskEngine.CalculateRisk(dataTypes);
-
-        results.Add(new ScanResult
+        var result = new ScanResult
         {
+            ScanId = Guid.NewGuid().ToString(),
             Source = file,
             SourceType = IsImage(file) ? "IMAGE" :
                          IsPdf(file) ? "PDF" : "TEXT",
             FileHash = hash,
             DetectedDataTypes = dataTypes,
             Risk = risk
-        });
+        };
+
+        // RECORD SUCCESSFUL SCAN
+        string? riskLevelToStore = null;
+
+        if (result.Risk != null)
+        {
+            riskLevelToStore = result.Risk.Level.ToString();
+        }
+        stateStore.RecordScan(hash, result.ScanId, riskLevelToStore);
+
+        if (dataTypes.Count == 0) continue;
+
+        classifierFoundResults.Add(result);
+
     }
     catch { /* skip unreadable files */ }
 }
 
 audit.Log("Scan completed");
-report.WriteReport(results);
+report.WriteReport(classifierFoundResults);
 
 Console.WriteLine("Scan complete. Report generated.");

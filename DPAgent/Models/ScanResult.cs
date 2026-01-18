@@ -8,6 +8,7 @@ namespace DPAgent.Models
     public class ScanResult
     {
         // What was scanned
+        public string ScanId { get; set; }
         public string Source { get; set; }        // file name / db table / image
         public string SourceType { get; set; }    // IMAGE / PDF / DB / TEXT
         public string FileHash { get; set; }

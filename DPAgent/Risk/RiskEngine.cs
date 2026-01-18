@@ -58,6 +58,8 @@ namespace DPAgent.Risk
 
             if (score >= 25)
                 return RiskLevel.MEDIUM;
+            if(score == 0)
+                return RiskLevel.NONE;
 
             return RiskLevel.LOW;
         }

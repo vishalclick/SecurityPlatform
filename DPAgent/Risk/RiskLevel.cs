@@ -6,6 +6,7 @@ namespace DPAgent.Risk
 {
     public enum RiskLevel
     {
+        NONE,
         LOW,
         MEDIUM,
         HIGH,
