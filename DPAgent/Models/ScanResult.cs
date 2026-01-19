@@ -1,4 +1,5 @@
-﻿using DPAgent.Risk;
+﻿using DPAgent.Labeling;
+using DPAgent.Risk;
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -20,7 +21,12 @@ namespace DPAgent.Models
         // Risk evaluation
         public RiskResult Risk { get; set; }
 
+        public List<DataLabel> Labels { get; set; } 
+            = new List<DataLabel>();
+
         // Metadata
         public bool IsSensitive => DetectedDataTypes.Count > 0;
+
+        public DateTime ScanTimestamp { get; set; }
     }
 }

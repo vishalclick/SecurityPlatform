@@ -5,9 +5,9 @@ using Tesseract;
 
 namespace DPAgent.Extraction
 {
-    public class ImageExtractor
+    public static class ImageExtractor
     {
-        public string Extract(string imagePath)
+        public static string Extract(string imagePath)
         {
             using var engine = new TesseractEngine(@"./tessdata", "eng", EngineMode.Default);
             using var img = Pix.LoadFromFile(imagePath);

@@ -12,7 +12,7 @@ namespace DPAgent.Utils
         static string appName = "DPAgent";
         static string ReportsFolderName = "Reports";
         static string ScanStoreFolderName = "ScanStore";
-        static string ReportsFileName = "Reports.csv";
+        static string ReportsFileName = "Reports.json";
         static string ScanStoreFileName = "ScanStore.json";
         public static string GetDirectoryPath(string component)
         {

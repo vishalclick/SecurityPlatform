@@ -5,9 +5,9 @@ using UglyToad.PdfPig;
 
 namespace DPAgent.Extraction
 {
-    public class PdfExtractor
+    public static class PdfExtractor
     {
-        public string Extract(string pdfPath)
+        public static string Extract(string pdfPath)
         {
             var text = "";
             using var doc = PdfDocument.Open(pdfPath);

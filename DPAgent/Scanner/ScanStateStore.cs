@@ -1,4 +1,5 @@
-﻿using DPAgent.Risk;
+﻿using DPAgent.Models;
+using DPAgent.Risk;
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -41,16 +42,24 @@ namespace DPAgent.Scanner
             return record.RiskLevel == "NONE";
         }
 
-        public void RecordScan(string fileHash, string scanId, string riskLevel)
+        public void RecordScan(string fileHash, ScanResult result)
         {
+            string? riskLevelToStore = null;
+
+            if (result.Risk != null)
+            {
+                riskLevelToStore = result.Risk.Level.ToString();
+            }
+
             // Normalize null → NONE
-            if (string.IsNullOrEmpty(riskLevel))
-                riskLevel = "NONE";
+            if (string.IsNullOrEmpty(result.Risk?.Level.ToString()))
+                riskLevelToStore = "NONE";
 
             _hashIndex[fileHash] = new ScanStateRecord
             {
-                ScanId = scanId,
-                RiskLevel = riskLevel
+                ScanId = result.ScanId,
+                FilePath = result.Source,
+                RiskLevel = riskLevelToStore
             };
 
             Save();

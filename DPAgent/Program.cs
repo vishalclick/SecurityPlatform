@@ -2,6 +2,7 @@
 using DPAgent.Audit;
 using DPAgent.Classification;
 using DPAgent.Extraction;
+using DPAgent.Labeling;
 using DPAgent.Models;
 using DPAgent.Reports;
 using DPAgent.Risk;
@@ -17,18 +18,18 @@ var riskEngine = new RiskEngine();
 var audit = new AuditLogger();
 
 string reportFilePath = PathLocator.GetReportFilePath();
-var report = new CsvReport(reportFilePath);
-
 string scanStoreFilePath = PathLocator.GetScanStoreFilePath();
 var stateStore = new ScanStateStore(scanStoreFilePath);
 
-var imageExtractor = new ImageExtractor();
-var pdfExtractor = new PdfExtractor();
+var labelEngine = new DataLabelEngine();
+
+
 
 var classifierFoundResults = new List<ScanResult>();
 string path = args.Length > 0 ? args[0] : ".";
 path = Console.ReadLine();
 audit.Log("Scan started");
+var deviceInfo = DeviceInfoCollector.Collect();
 
 foreach (var file in scanner.ScanDirectory(path))
 {
@@ -44,43 +45,34 @@ foreach (var file in scanner.ScanDirectory(path))
         }
 
         Console.WriteLine($"Scanning {file}...");
-        bool IsImage(string file) =>
-                                    file.EndsWith(".jpg") || file.EndsWith(".png") || file.EndsWith(".tiff");
-
-        bool IsPdf(string file) =>  file.EndsWith(".pdf");
-
-        string content = "";
-
-        if (IsImage(file))
-            content = imageExtractor.Extract(file);
-        else if (IsPdf(file))
-            content = pdfExtractor.Extract(file);
-        else
-            content = scanner.ReadSample(file);
         
+
+        string content = ExtractionManager.GetContent(file.ToLower());        
         var dataTypes = classifier.Classify(content);
 
 
         var risk = riskEngine.CalculateRisk(dataTypes);
+        FileType fileType = ExtractionManager.GetFileType(file);
+
         var result = new ScanResult
         {
             ScanId = Guid.NewGuid().ToString(),
             Source = file,
-            SourceType = IsImage(file) ? "IMAGE" :
-                         IsPdf(file) ? "PDF" : "TEXT",
+            SourceType = fileType.ToString(),
             FileHash = hash,
             DetectedDataTypes = dataTypes,
-            Risk = risk
+            Risk = risk,
+            ScanTimestamp = DateTime.UtcNow
         };
 
-        // RECORD SUCCESSFUL SCAN
-        string? riskLevelToStore = null;
+        // Apply labels AFTER risk calculation
+        result.Labels = labelEngine.ApplyLabels(result);
+        // Store labels using ADS or sidecar fallback
+        FileLabeler.StoreLabels(result);
 
-        if (result.Risk != null)
-        {
-            riskLevelToStore = result.Risk.Level.ToString();
-        }
-        stateStore.RecordScan(hash, result.ScanId, riskLevelToStore);
+        // RECORD SUCCESSFUL SCAN
+        
+        stateStore.RecordScan(hash, result);
 
         if (dataTypes.Count == 0) continue;
 
@@ -91,6 +83,6 @@ foreach (var file in scanner.ScanDirectory(path))
 }
 
 audit.Log("Scan completed");
-report.WriteReport(classifierFoundResults);
+JsonReport.Write(classifierFoundResults, deviceInfo, PathLocator.GetReportFilePath());
 
 Console.WriteLine("Scan complete. Report generated.");
